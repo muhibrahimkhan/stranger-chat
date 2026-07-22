@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StrangerChat</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="setup-screen" class="screen">
+    <div class="card">
+      <h1>🌍 StrangerChat</h1>
+      <p class="subtitle">Talk to a random stranger, anywhere in the world.</p>
+
+      <label>Nickname</label>
+      <input id="nickname" type="text" placeholder="e.g. Ibrahim" maxlength="24" />
+
+      <label>Your language</label>
+      <select id="language">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="de">Deutsch</option>
+        <option value="ar">العربية</option>
+        <option value="hi">हिन्दी</option>
+        <option value="ur">اردو</option>
+        <option value="zh">中文</option>
+        <option value="ja">日本語</option>
+        <option value="pt">Português</option>
+        <option value="ru">Русский</option>
+      </select>
+
+      <label>What are you into? <span class="hint">(used for smart matching)</span></label>
+      <textarea id="interests" rows="2" maxlength="200"
+        placeholder="e.g. basketball, anime, startups, hiking"></textarea>
+
+      <button id="start-btn">Find a stranger →</button>
+      <p class="footnote">By chatting you agree to be respectful. Reported users can be removed.</p>
+    </div>
+  </div>
+
+  <div id="waiting-screen" class="screen hidden">
+    <div class="card center">
+      <div class="spinner"></div>
+      <p id="waiting-text">Looking for someone to match you with…</p>
+      <button id="cancel-btn" class="secondary">Cancel</button>
+    </div>
+  </div>
+
+  <div id="chat-screen" class="screen hidden">
+    <div class="chat-header">
+      <div>
+        <strong id="partner-name">Stranger</strong>
+        <span id="partner-lang" class="pill"></span>
+      </div>
+      <div class="chat-actions">
+        <button id="report-btn" title="Report this user">🚩 Report</button>
+        <button id="skip-btn">Next stranger ⏭</button>
+      </div>
+    </div>
+    <div id="messages" class="messages"></div>
+    <div class="composer">
+      <input id="message-input" type="text" placeholder="Type a message…" maxlength="1000" />
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
