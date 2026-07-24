@@ -2,6 +2,9 @@ const { buildVectors, cosineSimilarity } = require('../services/matching.service
 const { translateText } = require('../services/translation.service');
 const { containsProfanity, censor } = require('../services/moderation.service');
 const { createBucket, tryConsume } = require('../services/rateLimiter.service');
+const Ban = require('../models/Ban');
+const Report = require('../models/Report');
+const { logEvent } = require('../services/analytics.service');
 
 const waitingQueue = [];
 const MAX_STRIKES = 3;
@@ -44,6 +47,8 @@ function matchOrQueue(socket) {
     partner.emit('matched', {
       partner: { nickname: socket.profile.nickname, language: socket.profile.language }
     });
+
+    logEvent('match', { matchScore: bestScore });
   } else {
     waitingQueue.push(socket);
     socket.emit('waiting');
@@ -61,8 +66,19 @@ function leaveCurrentRoom(socket) {
 }
 
 function registerSocketHandlers(io) {
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log('a user connected:', socket.id);
+
+    const ip = socket.handshake.address;
+    const activeBan = await Ban.findOne({ ip, expiresAt: { $gt: new Date() } });
+
+    if (activeBan) {
+      socket.emit('kicked', { reason: `You are temporarily banned: ${activeBan.reason}` });
+      socket.disconnect(true);
+      return;
+    }
+
+    logEvent('connection');
 
     socket.on('find-match', (profile) => {
       socket.profile = profile;
@@ -87,6 +103,14 @@ function registerSocketHandlers(io) {
         socket.emit('moderation-warning', { strikeCount: socket.strikes, max: MAX_STRIKES });
 
         if (socket.strikes >= MAX_STRIKES) {
+          const banIp = socket.handshake.address;
+          await Ban.create({
+            ip: banIp,
+            reason: 'Repeated inappropriate language.',
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          });
+
+          logEvent('kicked', { reason: 'Repeated inappropriate language.' });
           socket.emit('kicked', { reason: 'Repeated inappropriate language.' });
           socket.disconnect(true);
           return;
@@ -101,6 +125,9 @@ function registerSocketHandlers(io) {
       let translated = null;
       if (myLanguage !== partnerLanguage) {
         translated = await translateText(safeText, partnerLanguage);
+        if (!translated.ok) {
+          logEvent('translation_failure', { targetLanguage: partnerLanguage });
+        }
       }
 
       const payload = {
@@ -114,13 +141,27 @@ function registerSocketHandlers(io) {
       io.to(socket.roomId).emit('chat-message', payload);
     });
 
+    socket.on('report', async () => {
+      if (!socket.partner) return;
+
+      await Report.create({
+        reporterNickname: socket.profile.nickname,
+        reportedNickname: socket.partner.profile.nickname,
+        roomId: socket.roomId,
+      });
+
+      socket.emit('report-received');
+    });
+
     socket.on('skip', () => {
+      logEvent('skip');
       leaveCurrentRoom(socket);
       matchOrQueue(socket);
     });
 
     socket.on('disconnect', () => {
       console.log('a user disconnected:', socket.id);
+      logEvent('disconnect');
 
       const queueIndex = waitingQueue.indexOf(socket);
       if (queueIndex !== -1) {
@@ -130,6 +171,10 @@ function registerSocketHandlers(io) {
       leaveCurrentRoom(socket);
     });
   });
+  
+
 }
+
+
 
 module.exports = registerSocketHandlers;
