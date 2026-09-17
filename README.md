@@ -81,7 +81,7 @@ GET  /admin/bans          (Authorization: Bearer <token>)
 - [x] MongoDB persistence for reports and bans (with TTL auto-expiry)
 - [x] Admin authentication (JWT) for a reports/bans API
 - [x] Security hardening (helmet, CORS, input validation)
-- [ ] Deployment to a live URL
+- [x] Deployment to a live URL
 
 ## Why this project
 
